@@ -118,7 +118,7 @@ initramfs tool is actually installed:
 |---|---|---|
 | `dracut` | Fedora (default); Arch/Manjaro/EndeavourOS if dracut is installed | Confirmed working on real hardware |
 | `update-initramfs` | Debian, Ubuntu | Implemented, not yet confirmed on real hardware |
-| `mkinitcpio` | Arch, Manjaro, EndeavourOS (default) | Implemented, not yet confirmed on real hardware |
+| `mkinitcpio` | Arch, Manjaro, EndeavourOS (default) | Confirmed working on real hardware (MacBookPro15,1) |
 | none of the above | NixOS, Gentoo (OpenRC/genkernel/booster), anything unrecognized | Not automated. Tables are still built and validated, and the script prints manual next steps |
 
 NixOS is always treated as manual-only, even if one of the above tools
@@ -126,10 +126,9 @@ happens to be present: NixOS's initrd is rebuilt declaratively from
 `configuration.nix`, so files written under `/etc` here would just be
 discarded on the next `nixos-rebuild switch`.
 
-If you run this on Debian/Ubuntu or Arch/Manjaro/EndeavourOS-with-mkinitcpio,
-**please open an issue with the outcome either way** (worked or didn't).
-Those paths follow each tool's documented hook mechanism but haven't been
-exercised on a real T2 Mac yet.
+If you run this on Debian/Ubuntu, **please open an issue with the outcome
+either way** (worked or didn't). That path follows `initramfs-tools`'
+documented hook mechanism but hasn't been exercised on a real T2 Mac yet.
 
 ## Verifying and reverting
 
