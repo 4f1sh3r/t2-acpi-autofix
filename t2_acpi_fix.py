@@ -10,8 +10,8 @@ installed rather than by guessing from distro name:
   * dracut present -> the existing dracut.conf.d/acpi_override mechanism
     (Fedora's default; also covers Arch/Manjaro/EndeavourOS if dracut was
     installed in place of mkinitcpio).
-  * update-initramfs present (and no dracut) -> an initramfs-tools hook
-    (Debian/Ubuntu's default).
+  * update-initramfs present (and no dracut) -> an initramfs-tools hook that
+    prepends an uncompressed early cpio archive (Debian/Ubuntu's default).
   * mkinitcpio present (and neither of the above) -> a custom mkinitcpio
     install hook (Arch/Manjaro/EndeavourOS's default).
   * anything else (NixOS, Gentoo with genkernel/booster, or no recognized
@@ -1687,20 +1687,32 @@ def dracut_strategy() -> tuple[list[Path], Callable[[], None], Callable[[], None
 def initramfs_tools_hook_script() -> str:
     return (
         "#!/bin/sh\n"
-        "# Installed by t2_acpi_fix.py: copies patched T2 Mac ACPI table\n"
-        "# overrides into the initramfs at kernel/firmware/acpi/, which is where the\n"
-        "# kernel's built-in ACPI table override mechanism (CONFIG_ACPI_TABLE_UPGRADE)\n"
-        "# looks for them at boot, independent of which tool built the initramfs.\n"
+        "# Installed by t2_acpi_fix.py: packages patched T2 Mac ACPI table\n"
+        "# overrides in an uncompressed early cpio archive. The kernel's ACPI\n"
+        "# table-upgrade scanner runs before the regular compressed initramfs is\n"
+        "# unpacked, so copying these files into DESTDIR would be too late.\n"
         "set -e\n"
         "PREREQ=\"\"\n"
         "prereqs() { echo \"$PREREQ\"; }\n"
         "case \"$1\" in prereqs) prereqs; exit 0 ;; esac\n"
         ". /usr/share/initramfs-tools/hook-functions\n"
-        f'mkdir -p "$DESTDIR/kernel/firmware/acpi"\n'
+        'workdir="$(mktemp -d "${TMPDIR:-/var/tmp}/acpi-t2-fix.XXXXXX")"\n'
+        'trap \'rm -rf "$workdir"\' 0\n'
+        'staging="$workdir/staging"\n'
+        'archive="$workdir/acpi-tables.cpio"\n'
+        'mkdir -p "$staging/kernel/firmware/acpi"\n'
+        'found=no\n'
         f'for f in {DEPLOY_DIR}/*.aml; do\n'
         '    [ -e "$f" ] || continue\n'
-        '    cp "$f" "$DESTDIR/kernel/firmware/acpi/"\n'
-        "done\n"
+        '    cp "$f" "$staging/kernel/firmware/acpi/"\n'
+        '    found=yes\n'
+        'done\n'
+        '[ "$found" = yes ] || exit 0\n'
+        '(\n'
+        '    cd "$staging"\n'
+        '    find kernel -print | LC_ALL=C sort | cpio --quiet -o -H newc\n'
+        ') > "$archive"\n'
+        'prepend_earlyinitramfs "$archive"\n'
     )
 
 
